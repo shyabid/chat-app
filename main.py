@@ -74,9 +74,14 @@ def login_check():
     
         
     return render_template("login.html")    
-        
+      
+      
+
+
+
+  
 @app.route('/dashboard', methods=['GET', 'POST'])
-def ashboard():
+def dashboard():
     return render_template('dashboard.html')
 
 

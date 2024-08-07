@@ -5,7 +5,7 @@ import pymongo
 app = Flask(__name__)
 app.secret_key = 'askd9001e'
 
-myclient = pymongo.MongoClient("mongodb+srv://abid:1nQefcNAEIRYJ5gF@cluster0.jrkne.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+myclient = pymongo.MongoClient("mongodb+srv://")
 user_db = myclient["authentication"]
 user_table = user_db["user_info"]
 
@@ -76,13 +76,10 @@ def login_check():
     return render_template("login.html")    
       
       
-
-
-
   
 @app.route('/dashboard', methods=['GET', 'POST'])
 def dashboard():
-    return render_template('dashboard.html')
+    return render_template('home.html')
 
 
 if __name__ == '__main__':

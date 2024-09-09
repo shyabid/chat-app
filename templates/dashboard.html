@@ -104,16 +104,22 @@
             <table width="100%">
                 <tr>
                     <td>
-                        <button><h3>Fetch user</h3></button>
+                        <a href="fetch_user"><button><h3>Fetch user</h3></button></a>
                         <div class="vertical-menu">
-                        </div>
+                            {% for user in user_list %}
+                            <a href="{{url_for('update_cid', chat_id = user)}}">{{ user }}</a>
+                            {% endfor %}
+                        </div>                        
                     </td>
                 </tr>
                 <tr>
                     <td>
-                        <button><h3>Fetch group</h3></button>
+                        <a href="fetch_group"><button><h3>Fetch group</h3></button></a>
                         <div class="vertical-menu">
-                        </div>
+                            {% for group in group_list %}
+                            <a href="{{url_for('update_cid', chat_id = group)}}">{{ group }}</a>
+                            {% endfor %}
+                        </div>                        
                     </td>
                 </tr>
             </table>
@@ -123,7 +129,7 @@
             <table width="100%">
                 <tr>
                     <td>
-                        <h3>ChatWindow of {{chat_id}}</h3>
+                        <h3>ChatWindow of {{ cid }}</h3>
                         <div class="vertical-menu2">
                             <table width="100%">
                                 <tr>

@@ -4,167 +4,299 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard</title>
-    <style>
-        body, html {
-            width: 100%;
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script>
+    $(document).ready(function() {
+        const socket = io();
+        let currentChatId = '{{ cid }}';
+        let userMessages = {};
+
+        function fetchUsers() {
+            $.get('/fetch_users', function(users) {
+                $('#user-list').empty();
+                users.forEach(function(user) {
+                    $('#user-list').append(`<button class="chat-button" data-id="${user}">${user}</button><br>`);
+                    loadMessagesForUser(user);
+                });
+            });
+        }
+
+        function fetchGroups() {
+            $.get('/fetch_groups', function(groups) {
+                $('#group-list').empty();
+                groups.forEach(function(group) {
+                    $('#group-list').append(`<button class="chat-button" data-id="${group}">${group}</button><br>`);
+                });
+            });
+        }
+
+        function updateChat(chatId) {
+            currentChatId = chatId;
+            $('#current-chat').text(chatId);
+            displayMessages(chatId);
+        }
+
+        function loadMessagesForUser(userId) {
+            $.get(`/get_messages?chat_id=${userId}`, function(messages) {
+                userMessages[userId] = messages;
+                if (userId === currentChatId) {
+                    displayMessages(userId);
+                }
+            });
+        }
+
+        function displayMessages(chatId) {
+            $('#chat-window').empty();
+            if (userMessages[chatId]) {
+                userMessages[chatId].forEach(function(msg) {
+                    appendMessage(msg);
+                });
+                scrollChatToBottom();
+            }
+        }
+
+        function appendMessage(msg) {
+            const sender = msg.sender === '{{ userid }}' ? 'You' : msg.sender;
+            $('#chat-window').append(`
+                <p><strong>${sender}</strong>: ${msg.message}</p>
+            `);
+            scrollChatToBottom();
+        }
+
+        function scrollChatToBottom() {
+            $('#chat-window').scrollTop($('#chat-window')[0].scrollHeight);
+        }
+
+        function sendMessage() {
+            const message = $('#message-input').val();
+            if (message && currentChatId) {
+                socket.emit('send_message', {
+                    message: message,
+                    recipient: currentChatId
+                });
+                $('#message-input').val('');
+                appendMessage({ sender: '{{ userid }}', message: message });
+                if (!userMessages[currentChatId]) {
+                    userMessages[currentChatId] = [];
+                }
+                userMessages[currentChatId].push({ sender: '{{ userid }}', message: message });
+            }
+        }
+
+        fetchUsers();
+        fetchGroups();
+
+        $(document).on('click', '.chat-button', function() {
+            updateChat($(this).data('id'));
+        });
+
+        $('#send-button').click(sendMessage);
+
+        $('#message-input').keypress(function(e) {
+            if (e.which == 13) {
+                sendMessage();
+                return false;
+            }
+        });
+
+        socket.on('new_message', function(msg) {
+            // Add the message to userMessages regardless of the current chat
+            const chatId = msg.sender === '{{ userid }}' ? msg.recipient : msg.sender;
+            if (!userMessages[chatId]) {
+                userMessages[chatId] = [];
+            }
+            userMessages[chatId].push(msg);
+
+            // If the message is for the current chat, display it
+            if (msg.sender === currentChatId || msg.recipient === currentChatId) {
+                appendMessage(msg);
+            }
+
+            // If the message is from a different chat, update the user list to show new message indicator
+            if (msg.sender !== currentChatId && msg.sender !== '{{ userid }}') {
+                const userButton = $(`.chat-button[data-id="${msg.sender}"]`);
+                if (!userButton.find('.new-message-indicator').length) {
+                    userButton.append('<span class="new-message-indicator"> (New)</span>');
+                }
+            }
+        });
+
+        socket.on('user_connected', function(data) {
+            console.log('User connected:', data.user_id);
+            fetchUsers(); // Refresh the user list when a new user connects
+        });
+
+        socket.on('user_disconnected', function(data) {
+            console.log('User disconnected:', data.user_id);
+            fetchUsers(); // Refresh the user list when a user disconnects
+        });
+
+        // Periodically check for new messages
+        setInterval(function() {
+            if (currentChatId) {
+                loadMessagesForUser(currentChatId);
+            }
+        }, 100); // Check every 5 seconds
+    });
+</script>
+<style>
+
+body, html {
             height: 100%;
             margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
         }
 
-        .container {
-            width: 100%;
+        .container-fluid {
             height: 100%;
+            display: flex;
+            flex-direction: column;
         }
 
-        .left_panel {
-            width: 35%;
-            height: 80%;
-            float: left;
-            background-color: antiquewhite;
-            border-collapse: collapse;
+        .chat-container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: row;
+            overflow: hidden;
         }
 
-        .right_top_panel {
-            width: 65%;
-            height: 68%;
-            position: relative;
-            float: right;
-            border-width:  1px;
-            background-color: bisque;
-            border-collapse: collapse;
-        }
-
-        .right_bottom_panel {
-            width: 65%;
-            height: 12%;
-            position: relative;
-            float: right;
-            background-color: chocolate;
-            border-collapse: collapse;
-        }
-
-        .top_panel {
-            width: 100%;
-            height: 10%;
-            float: left;
-            border-collapse: collapse;
-        }
-
-        .bottom_panel {
-            width: 100%;
-            height: 10%;
-            float: left;
-            border-collapse: collapse;
-        }   
-        
-        .btn {
-            width: 40%;
-            font-size: 15px;
-            margin-left: 10px;
-        }
-
-        input[type=text]{
-            width: 100%;
-            padding: 12px 20px;
-            margin: 8px 0;
-            display: inline-block;
-            box-sizing: border-box;
-        }
-        
-        .vertical-menu {
-            width: 460px;
-            height: 180px;
+        .sidebar {
+            width: 20%;
+            background-color: #2f3136;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            padding: 0;
             overflow-y: auto;
         }
 
-        .vertical-menu2 {
-            width: 850px;
-            height: 300px;
-            overflow-y: auto;
-            scroll-behavior: smooth;
-
+        .sidebar-header {
+            padding: 1rem;
+            border-bottom: 1px solid #202225;
         }
-    </style>
+
+        .sidebar-section {
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+
+        .list-group-item {
+            background-color: #2f3136;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+        }
+
+        .list-group-item:hover {
+            background-color: #40444b;
+        }
+
+        .chat-window {
+            flex-grow: 1;
+            background-color: #36393f;
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+        }
+
+        .chat-header {
+            background-color: #202225;
+            color: white;
+            padding: 1rem;
+            border-bottom: 1px solid #40444b;
+        }
+
+        .chat-body {
+            flex-grow: 1;
+            padding: 1rem;
+            overflow-y: auto;
+            background-color: #36393f;
+            color: white;
+        }
+
+        .message-input-section {
+            padding: 1rem;
+            border-top: 1px solid #40444b;
+            background-color: #2f3136;
+        }
+
+        .message-input {
+            resize: none;
+            background-color: #40444b;
+            color: white;
+            border: none;
+            padding: 0.5rem;
+        }
+
+        .message-input:focus {
+            box-shadow: none;
+            border-color: transparent;
+            outline: none;
+        }
+
+        .btn-primary {
+            background-color: #7289da;
+            border: none;
+        }
+
+        .btn-primary:hover {
+            background-color: #5b6eae;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 50%;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .sidebar {
+                width: 100%;
+            }
+        }
+</style>
 </head>
 <body>
-    <div class="container">
-        <div class="top_panel">
-            <table width="100%">
-                <tr width="90%">
-                    <td>
-                        <h1 style="margin: 20px;">{{userid}}'s Dashboard</h1>
-                    </td>
-                    <td style="text-align: center;">
-                        <button>Logout</button>
-                    </td>
-                </tr>
-            </table>
-        </div>
-        <div class="left_panel">
-            <table width="100%">
-                <tr>
-                    <td>
-                        <a href="fetch_user"><button><h3>Fetch user</h3></button></a>
-                        <div class="vertical-menu">
-                            {% for user in user_list %}
-                            <a href="{{url_for('update_cid', chat_id = user)}}">{{ user }}</a>
-                            {% endfor %}
-                        </div>                        
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        <a href="fetch_group"><button><h3>Fetch group</h3></button></a>
-                        <div class="vertical-menu">
-                            {% for group in group_list %}
-                            <a href="{{url_for('update_cid', chat_id = group)}}">{{ group }}</a>
-                            {% endfor %}
-                        </div>                        
-                    </td>
-                </tr>
-            </table>
-        </div>
-        <div class="right_top_panel">
-            <form action="dashboard" method="post"></form>
-            <table width="100%">
-                <tr>
-                    <td>
-                        <h3>ChatWindow of {{ cid }}</h3>
-                        <div class="vertical-menu2">
-                            <table width="100%">
-                                <tr>
-                                    <td width="60%">
-                                        Message Text
-                                    </td>
-                                    <td width="10%">
-                                        Sender id
-                                    </td>
-                                    <td width="20%">
-                                        Timestamp
-                                    </td>
-                                    <td width=" 10%">
-                                        Msgid
-                                    </td>
-                                </tr>
-
-                            </table>
-                        </div>
-                    </td>
-                </tr>
-            </table>
-        </div>
-        <div class="right_bottom_panel">
-            <table width="100%">
-                <tr>
-                    <td>
-                        <input type="text", name="typed_msg", placeholder="Type a message...">
-                    </td>
-                    <td>
-                        <button>Send</button>
-                    </td>
-                </tr>
-            </table>
+    <div class="container-fluid h-100">
+        <div class="row chat-container">
+            <div class="col-md-3 col-sm-4 sidebar">
+                <div class="sidebar-header">
+                    <h3>{{userid}}'s Dashboard</h3>
+                    <a href="/logout" class="btn btn-outline-light btn-sm">Logout</a>
+                </div>
+                <div class="sidebar-section">
+                    <h5 class="p-3">Users</h5>
+                    <div id="user-list" class="list-group list-group-flush">
+                        <!-- Dynamic User List Here -->
+                    </div>
+                </div>
+                <div class="sidebar-section">
+                    <h5 class="p-3">Groups</h5>
+                    <div id="group-list" class="list-group list-group-flush">
+                        <!-- Dynamic Group List Here -->
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-9 col-sm-8 chat-window">
+                <div class="chat-header">
+                    <h4>Chat with <span id="current-chat">{{ cid }}</span></h4>
+                </div>
+                <div id="chat-window" class="chat-body">
+                    <!-- Chat Messages Here -->
+                </div>
+                <div class="message-input-section">
+                    <div class="input-group">
+                        <textarea id="message-input" class="form-control message-input" rows="1" placeholder="Type a message..."></textarea>
+                        <button id="send-button" class="btn btn-primary">Send</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
+
 </body>
 </html>

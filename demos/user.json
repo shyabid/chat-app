@@ -1,0 +1,13 @@
+{
+    "user1": {
+        "cid": "user2",
+        "user_list": ["user3", "user4", "user5"],
+        "group_list": ["group1", "group2"],
+        "msg_list": {
+            "user1": {
+                
+            }
+        }
+    }
+
+}

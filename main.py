@@ -3,6 +3,7 @@ from flask import Flask, render_template, request, redirect, session, jsonify
 import logging
 import pymongo
 from flask_socketio import SocketIO, emit
+from dotenv import load_dotenv; load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 
@@ -10,7 +11,8 @@ app = Flask(__name__)
 app.secret_key = 'askd9001e'
 socketio = SocketIO(app)
 
-myclient = pymongo.MongoClient("")
+
+myclient = pymongo.MongoClient(os.getenv("DATABASE")) #DATABASE=""
 user_db = myclient["authentication"]
 user_table = user_db["user_info"]
 message_table = user_db["messages"]
